@@ -1,5 +1,5 @@
 const express = require('express')
-const { handleAuthorization } = require('./handlers')
+const { handleAuthorization, handleLogin } = require('./handlers')
 
 function getOAuthRoutes() {
   const router = express.Router()
@@ -10,7 +10,7 @@ function getOAuthRoutes() {
 
 function getLoginRoutes() {
   const router = express.Router()
-  router.get('/authenticate', () => {})
+  router.post('/authenticate', handleLogin)
   return router
 }
 

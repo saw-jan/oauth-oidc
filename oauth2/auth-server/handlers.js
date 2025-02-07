@@ -1,26 +1,52 @@
-const clients = require('./clients')
 const path = require('path')
+const { v4: uuidv4 } = require('uuid')
+
+const clients = require('./clients')
+const { users, reqContext } = require('./store')
 
 function handleAuthorization(req, res) {
+  const reqId = uuidv4()
+  const context = {}
+
   // validate client_id and redirect_uri
   const authError = validateAuthRequest(req)
   if (authError) {
     res.status(400).send(authError)
   }
 
-  const state = req.query.state || null
+  context.clientId = req.query.client_id
+  context.redirectUri = req.query.redirect_uri
+  context.state = req.query.state || null
 
   // validate response_type
   const responseTypeError = validateResponseType(req)
   if (responseTypeError) {
     if (state) {
-      responseTypeError.state = state
+      responseTypeError.state = context.state
     }
     const errParams = new URLSearchParams(responseTypeError).toString()
     res.status(403).redirect(`${req.query.redirect_uri}?${errParams}`)
   }
 
+  context.responseType = req.query.response_type
+  reqContext[reqId] = context
+
+  // implement templating
+  // send reqId to login page
   return res.sendFile(path.join(__dirname, 'static', 'login.html'))
+}
+
+function handleLogin(req, res) {
+  for (const user of users) {
+    if (
+      user.username === req.body.username &&
+      user.password === req.body.password
+    ) {
+      // TODO: generate code
+    }
+  }
+
+  res.status(401).send('Invalid credentials')
 }
 
 function validateResponseType(req) {
@@ -77,4 +103,4 @@ function getClient(clientId) {
   return null
 }
 
-module.exports = { handleAuthorization }
+module.exports = { handleAuthorization, handleLogin }

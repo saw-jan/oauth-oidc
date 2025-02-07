@@ -1,8 +1,12 @@
 const express = require('express')
+const bodyParser = require('body-parser')
+
 const { oauthRoutes, loginRoutes } = require('./routes')
 
 const app = express()
 const port = 5000
+
+app.use(bodyParser.urlencoded({ extended: false }))
 
 app.use('/oauth', oauthRoutes)
 app.use('/login', loginRoutes)
