@@ -4,6 +4,7 @@ const db = {
     { username: 'demo', password: '1234' },
   ],
   reqContext: {},
+  codes: {},
   tokens: {},
 }
 

@@ -1,8 +1,7 @@
-const path = require('path')
-const { v4: uuidv4 } = require('uuid')
+const { randomUUID: uuidv4, randomBytes } = require('node:crypto')
 
 const clients = require('./clients')
-const { users, reqContext } = require('./store')
+const { users, reqContext, codes } = require('./store')
 
 function handleAuthorization(req, res) {
   const reqId = uuidv4()
@@ -31,9 +30,8 @@ function handleAuthorization(req, res) {
   context.responseType = req.query.response_type
   reqContext[reqId] = context
 
-  // implement templating
-  // send reqId to login page
-  return res.sendFile(path.join(__dirname, 'static', 'login.html'))
+  // render login page with request_token
+  res.render('login', { query: `request_token=${reqId}` })
 }
 
 function handleLogin(req, res) {
@@ -42,7 +40,14 @@ function handleLogin(req, res) {
       user.username === req.body.username &&
       user.password === req.body.password
     ) {
-      // TODO: generate code
+      const ctx = reqContext[req.query.request_token]
+      const code = generateCode(ctx.clientId, ctx.redirectUri)
+
+      let query = new URLSearchParams({ code })
+      if (ctx.state) query.append('state', ctx.state)
+      query = query.toString()
+
+      res.redirect(`${ctx.redirectUri}?${query}`)
     }
   }
 
@@ -101,6 +106,14 @@ function getClient(clientId) {
     if (clients[client].client_id === clientId) return clients[client]
   }
   return null
+}
+
+function generateCode(clientId, redirectUri) {
+  // 32 length random hex string
+  const code = randomBytes(16).toString('hex')
+  const expiry = Date.now() + 10 * 60 * 1000 // 10 minutes
+  codes[code] = { clientId, redirectUri, expiresAt: expiry, used: false }
+  return code
 }
 
 module.exports = { handleAuthorization, handleLogin }
