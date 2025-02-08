@@ -47,7 +47,7 @@ function handleLogin(req, res) {
       if (ctx.state) query.append('state', ctx.state)
       query = query.toString()
 
-      res.redirect(`${ctx.redirectUri}?${query}`)
+      return res.redirect(`${ctx.redirectUri}?${query}`)
     }
   }
 
