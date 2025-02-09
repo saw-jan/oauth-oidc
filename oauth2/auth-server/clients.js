@@ -1,4 +1,4 @@
-module.exports = {
+const clients = {
   web: {
     client_id: 'web',
     redirect_uris: ['http://localhost:3000/oauth-callback'],
@@ -10,4 +10,11 @@ module.exports = {
   },
 }
 
-// http://localhost:5000/oauth/authorize?response_type=code&client_id=web&redirect_uri=http://localhost:3000/oauth-callback
+function getClient(clientId) {
+  for (const client in clients) {
+    if (clients[client].client_id === clientId) return clients[client]
+  }
+  return null
+}
+
+module.exports = { getClient }

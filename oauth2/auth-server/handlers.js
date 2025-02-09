@@ -1,7 +1,7 @@
 const { randomUUID: uuidv4, randomBytes } = require('node:crypto')
 
-const clients = require('./clients')
-const { users, sessions, codes } = require('./store')
+const { getClient } = require('./clients')
+const { users, sessions, codes, tokens } = require('./store')
 
 function handleAuthorization(req, res) {
   const sessionId = uuidv4()
@@ -58,6 +58,64 @@ function handleLogin(req, res) {
   res.status(401).send('Invalid credentials')
 }
 
+function handleTokenRequest(req, res) {
+  const params = req.body
+  if (
+    !params.code ||
+    !params.grant_type ||
+    !params.client_id ||
+    !params.redirect_uri
+  ) {
+    sendErrorResponse('invalid_request')
+  }
+
+  // validate grant_type
+  if (params.grant_type !== 'authorization_code') {
+    sendErrorResponse('unsupported_grant_type')
+  }
+
+  const client = getClient(params.client_id)
+  if (!client) {
+    sendErrorResponse('invalid_client')
+  }
+  // check if client_id and client_secret are valid
+  if (
+    isConfidentialClient(client) &&
+    (!params.client_secret ||
+      !authenticateClient(params.client_id, params.client_secret))
+  ) {
+    res.status(401).send('invalid_client')
+  }
+
+  // check if code is valid and not expired
+  const code = codes[params.code]
+  if (!code || hasCodeExpired(code.expiry)) {
+    sendErrorResponse('invalid_grant')
+  }
+  // check if code is for the same client_id
+  if (code.clientId !== params.client_id) {
+    sendErrorResponse('invalid_grant')
+  }
+
+  // check if redirect_uri is valid
+  if (
+    code.redirectUri &&
+    (!params.redirect_uri || code.redirectUri !== params.redirect_uri)
+  ) {
+    sendErrorResponse('invalid_grant')
+  }
+
+  res.set('content-type', 'application/json')
+  res.set('cache-control', 'no-store')
+  res.set('pragma', 'no-cache')
+
+  res.status(200).send(generateToken())
+}
+
+function sendErrorResponse(res, error) {
+  res.status(400).send({ error })
+}
+
 function validateResponseType(req) {
   query = req.query
 
@@ -105,13 +163,6 @@ function validateAuthRequest(req) {
   return null
 }
 
-function getClient(clientId) {
-  for (const client in clients) {
-    if (clients[client].client_id === clientId) return clients[client]
-  }
-  return null
-}
-
 function generateCode(clientId, redirectUri) {
   // 32 length random hex string
   const code = randomBytes(16).toString('hex')
@@ -120,4 +171,36 @@ function generateCode(clientId, redirectUri) {
   return code
 }
 
-module.exports = { handleAuthorization, handleLogin }
+function generateToken(clientId) {
+  const accessToken = randomBytes(32)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+/g, '')
+  const token = {
+    access_token: accessToken,
+    token_type: 'bearer',
+    expires_in: 3600, // 1 hour (in seconds)
+  }
+  tokens[accessToken] = { ...token, clientId }
+  return token
+}
+
+function hasCodeExpired(codeExpiry) {
+  const now = Date.now()
+  if (now > codeExpiry) {
+    return true
+  }
+  return false
+}
+
+function isConfidentialClient(client) {
+  return !!client.client_secret
+}
+
+function authenticateClient(clientId, clientSecret) {
+  const client = getClient(clientId)
+  return client.client_secret === clientSecret
+}
+
+module.exports = { handleAuthorization, handleLogin, handleTokenRequest }
