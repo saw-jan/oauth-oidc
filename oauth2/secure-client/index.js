@@ -1,6 +1,7 @@
 const { randomBytes } = require('node:crypto')
 const express = require('express')
 const session = require('express-session')
+const cookie = require('cookie-parser')
 const path = require('path')
 const request = require('axios')
 
@@ -16,6 +17,7 @@ const oauthClient = {
 app.set('view engine', 'ejs')
 app.set('views', path.join(__dirname, 'views'))
 
+app.use(cookie())
 app.use(
   session({
     secret: 'very_secret',
@@ -24,7 +26,18 @@ app.use(
   })
 )
 
-app.get('/', (req, res) => {
+function authMiddleware(req, res, next) {
+  if (!req.cookies.access_token) {
+    return res.redirect('/')
+  }
+  next()
+}
+
+app.get('/', authMiddleware, (req, res) => {
+  if (req.cookies.access_token) {
+    return res.redirect('/dashboard')
+  }
+
   const state = generateState()
   req.session.state = state
 
@@ -35,7 +48,11 @@ app.get('/', (req, res) => {
     state,
   }).toString()
 
-  res.redirect('http://localhost:5000/oauth/authorize?' + query)
+  return res.redirect('http://localhost:5000/oauth/authorize?' + query)
+})
+
+app.get('/dashboard', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'dashboard.html'))
 })
 
 app.get('/oauth-callback', async (req, res) => {
@@ -60,7 +77,11 @@ app.get('/oauth-callback', async (req, res) => {
     return res.status(tokenRes.status).send(tokenRes.statusText)
   }
 
-  console.log(tokenRes.data)
+  res.cookie('access_token', tokenRes.data.access_token, {
+    httpOnly: true,
+    maxAge: tokenRes.data.expires_in * 1000,
+  })
+  res.redirect('/dashboard')
 })
 
 app.all('*', (req, res) => {
