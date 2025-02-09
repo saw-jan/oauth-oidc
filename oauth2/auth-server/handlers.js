@@ -1,10 +1,10 @@
 const { randomUUID: uuidv4, randomBytes } = require('node:crypto')
 
 const clients = require('./clients')
-const { users, reqContext, codes } = require('./store')
+const { users, sessions, codes } = require('./store')
 
 function handleAuthorization(req, res) {
-  const reqId = uuidv4()
+  const sessionId = uuidv4()
   const context = {}
 
   // validate client_id and redirect_uri
@@ -28,19 +28,23 @@ function handleAuthorization(req, res) {
   }
 
   context.responseType = req.query.response_type
-  reqContext[reqId] = context
+  sessions[sessionId] = context
 
-  // render login page with request_token
-  res.render('login', { query: `request_token=${reqId}` })
+  // render login page with session_id
+  res.render('login', { query: `session_id=${sessionId}` })
 }
 
 function handleLogin(req, res) {
+  if (!req.query.session_id || !sessions[req.query.session_id]) {
+    return res.status(400).send('Invalid request')
+  }
+
   for (const user of users) {
     if (
       user.username === req.body.username &&
       user.password === req.body.password
     ) {
-      const ctx = reqContext[req.query.request_token]
+      const ctx = sessions[req.query.session_id]
       const code = generateCode(ctx.clientId, ctx.redirectUri)
 
       let query = new URLSearchParams({ code })

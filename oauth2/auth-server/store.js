@@ -3,7 +3,7 @@ const db = {
     { username: 'admin', password: 'admin' },
     { username: 'demo', password: '1234' },
   ],
-  reqContext: {},
+  sessions: {},
   codes: {},
   tokens: {},
 }

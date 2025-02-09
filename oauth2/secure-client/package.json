@@ -1,16 +1,15 @@
 {
-  "name": "oauth2",
+  "name": "secure-client",
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "serve": "bash serve.sh"
+    "serve": "node ibndex.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.7.9",
-    "body-parser": "^1.20.3",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "express-session": "^1.18.1"
