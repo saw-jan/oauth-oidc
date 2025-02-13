@@ -3,12 +3,14 @@ const {
   handleAuthorization,
   handleLogin,
   handleTokenRequest,
+  handleTokenInfo,
 } = require('./handlers')
 
 function getOAuthRoutes() {
   const router = express.Router()
   router.get('/authorize', handleAuthorization)
   router.post('/token', handleTokenRequest)
+  router.post('/introspect', handleTokenInfo)
   return router
 }
 

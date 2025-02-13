@@ -66,17 +66,17 @@ function handleTokenRequest(req, res) {
     !params.client_id ||
     !params.redirect_uri
   ) {
-    sendErrorResponse('invalid_request')
+    sendErrorResponse(res, 'invalid_request')
   }
 
   // validate grant_type
   if (params.grant_type !== 'authorization_code') {
-    sendErrorResponse('unsupported_grant_type')
+    sendErrorResponse(res, 'unsupported_grant_type')
   }
 
   const client = getClient(params.client_id)
   if (!client) {
-    sendErrorResponse('invalid_client')
+    sendErrorResponse(res, 'invalid_client')
   }
   // check if client_id and client_secret are valid
   if (
@@ -90,11 +90,11 @@ function handleTokenRequest(req, res) {
   // check if code is valid and not expired
   const code = codes[params.code]
   if (!code || hasCodeExpired(code.expiry)) {
-    sendErrorResponse('invalid_grant')
+    sendErrorResponse(res, 'invalid_grant')
   }
   // check if code is for the same client_id
   if (code.clientId !== params.client_id) {
-    sendErrorResponse('invalid_grant')
+    sendErrorResponse(res, 'invalid_grant')
   }
 
   // check if redirect_uri is valid
@@ -102,7 +102,7 @@ function handleTokenRequest(req, res) {
     code.redirectUri &&
     (!params.redirect_uri || code.redirectUri !== params.redirect_uri)
   ) {
-    sendErrorResponse('invalid_grant')
+    sendErrorResponse(res, 'invalid_grant')
   }
 
   res.set('content-type', 'application/json')
@@ -112,8 +112,30 @@ function handleTokenRequest(req, res) {
   res.status(200).send(generateToken())
 }
 
-function sendErrorResponse(res, error) {
-  res.status(400).send({ error })
+function handleTokenInfo(req, res) {
+  const params = req.body
+  if (!params.token) {
+    sendErrorResponse(res, 'invalid_request')
+  }
+  // authenticate request
+  const authHeader = req.get('authorization')
+  if (authHeader && !authenticateSystemClient(authHeader)) {
+    sendErrorResponse(res, 'invalid_client')
+  }
+
+  // return token info
+  res.set('content-type', 'application/json')
+}
+
+/**
+ * -------------------------------
+ * Helper functions
+ * -------------------------------
+ */
+function sendErrorResponse(res, error, description = '') {
+  const errorResponse = { error }
+  if (description) errorResponse.error_description = description
+  res.status(400).send(errorResponse)
 }
 
 function validateResponseType(req) {
@@ -203,4 +225,18 @@ function authenticateClient(clientId, clientSecret) {
   return client.client_secret === clientSecret
 }
 
-module.exports = { handleAuthorization, handleLogin, handleTokenRequest }
+function authenticateSystemClient(authHeader) {
+  const [clientId, clientSecret] = Buffer.from(
+    authHeader.split(' ')[1],
+    'base64'
+  )
+    .toString()
+    .split(':')
+  return clientId === 'system-client' && clientSecret === 'top_secret_key'
+}
+module.exports = {
+  handleAuthorization,
+  handleLogin,
+  handleTokenRequest,
+  handleTokenInfo,
+}
