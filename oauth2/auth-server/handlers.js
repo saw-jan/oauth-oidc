@@ -1,7 +1,7 @@
 const { randomUUID: uuidv4, randomBytes } = require('node:crypto')
 
 const { getClient } = require('./clients')
-const { users, sessions, codes, tokens } = require('./store')
+const { userStore, sessionStore, codeStore, tokenStore } = require('./store')
 
 function handleAuthorization(req, res) {
   const sessionId = uuidv4()
@@ -28,31 +28,30 @@ function handleAuthorization(req, res) {
   }
 
   context.responseType = req.query.response_type
-  sessions[sessionId] = context
+  sessionStore.add(sessionId, context)
 
   // render login page with session_id
   res.render('login', { query: `session_id=${sessionId}` })
 }
 
 function handleLogin(req, res) {
-  if (!req.query.session_id || !sessions[req.query.session_id]) {
+  const sessionCtx = sessionStore.get(req.query.session_id)
+  if (!session) {
     return res.status(400).send('Invalid request')
   }
 
-  for (const user of users) {
-    if (
-      user.username === req.body.username &&
-      user.password === req.body.password
-    ) {
-      const ctx = sessions[req.query.session_id]
-      const code = generateCode(ctx.clientId, ctx.redirectUri)
+  const user = userStore.getUser(req.body.username)
+  if (
+    user.username === req.body.username &&
+    user.password === req.body.password
+  ) {
+    const code = generateCode(sessionCtx.clientId, sessionCtx.redirectUri)
 
-      let query = new URLSearchParams({ code })
-      if (ctx.state) query.append('state', ctx.state)
-      query = query.toString()
+    let query = new URLSearchParams({ code })
+    if (sessionCtx.state) query.append('state', sessionCtx.state)
+    query = query.toString()
 
-      return res.redirect(`${ctx.redirectUri}?${query}`)
-    }
+    return res.redirect(`${sessionCtx.redirectUri}?${query}`)
   }
 
   res.status(401).send('Invalid credentials')
@@ -88,7 +87,7 @@ function handleTokenRequest(req, res) {
   }
 
   // check if code is valid and not expired
-  const code = codes[params.code]
+  const code = codeStore.get(params.code)
   if (!code || hasCodeExpired(code.expiry)) {
     sendErrorResponse(res, 'invalid_grant')
   }
@@ -125,6 +124,7 @@ function handleTokenInfo(req, res) {
 
   // return token info
   res.set('content-type', 'application/json')
+  res.status(200).send(getTokenInfo(params.token))
 }
 
 /**
@@ -189,7 +189,7 @@ function generateCode(clientId, redirectUri) {
   // 32 length random hex string
   const code = randomBytes(16).toString('hex')
   const expiry = Date.now() + 10 * 60 * 1000 // 10 minutes
-  codes[code] = { clientId, redirectUri, expiresAt: expiry, used: false }
+  codeStore.add(code, { clientId, redirectUri, expiresAt: expiry, used: false })
   return code
 }
 
@@ -204,7 +204,7 @@ function generateToken(clientId) {
     token_type: 'bearer',
     expires_in: 3600, // 1 hour (in seconds)
   }
-  tokens[accessToken] = { ...token, clientId }
+  tokenStore.add(accessToken, { ...token, clientId, createdAt: Date.now() })
   return token
 }
 
@@ -234,6 +234,28 @@ function authenticateSystemClient(authHeader) {
     .split(':')
   return clientId === 'system-client' && clientSecret === 'top_secret_key'
 }
+
+function getTokenInfo(token) {
+  const tokenObj = tokenStore.get(token)
+  const tokenInfo = { active: false }
+  if (!tokenObj) {
+    return tokenInfo
+  }
+
+  // check if token has expired
+  const timeDiffSeconds = (Date.now() - tokenObj.createdAt) / 1000
+  if (timeDiffSeconds >= tokenObj.expires_in) {
+    return tokenInfo
+  }
+
+  tokenInfo.active = true
+  tokenInfo.client_id = tokenObj.clientId
+  tokenInfo.exp = tokenObj.createdAt + tokenObj.expires_in * 1000
+  tokenInfo.iat = tokenObj.createdAt
+
+  return tokenInfo
+}
+
 module.exports = {
   handleAuthorization,
   handleLogin,
