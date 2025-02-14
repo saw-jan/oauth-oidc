@@ -7,15 +7,32 @@
     </head>
 
     <body>
-        <script>
-            fetch('http://localhost:5001/api/files', {
-                method: 'GET',
-            })
-                .then((response) => response.json())
-                .then((data) => console.log(data))
-                .catch((error) => console.error('Error:', error))
-        </script>
         <h1>My Dashboard</h1>
-        <a href="/logout">logout</a>
+        <div>
+            <h3>Files:</h3>
+            <div id="files">No files.</div>
+        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const accessToken = document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith('access_token='))
+                    .split('=')[1]
+
+                fetch('http://localhost:5001/api/files', {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        document.getElementById('files').innerHTML = data
+                            .map(({ name }) => `<li>${name}</li>`)
+                            .join('')
+                    })
+                    .catch((error) => console.error('Error:', error))
+            })
+        </script>
     </body>
 </html>

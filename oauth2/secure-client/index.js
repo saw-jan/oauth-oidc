@@ -78,7 +78,7 @@ app.get('/oauth-callback', async (req, res) => {
   }
 
   res.cookie('access_token', tokenRes.data.access_token, {
-    httpOnly: true,
+    httpOnly: false,
     maxAge: tokenRes.data.expires_in * 1000,
   })
   res.redirect('/dashboard')

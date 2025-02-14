@@ -1,11 +1,19 @@
 const express = require('express')
+const cors = require('cors')
 const request = require('axios')
 
 const app = express()
 const port = 5001
 
+app.use(cors())
+
 async function verifyToken(req, res, next) {
-  const token = req.cookies?.access_token
+  if (!req.get('authorization')) {
+    res.set('WWW-Authenticate', 'Bearer')
+    return res.status(401).send('Unauthorized')
+  }
+
+  const token = req.get('authorization').split(' ')[1]
   const clientAuthToken = Buffer.from('system-client:top_secret_key').toString(
     'base64'
   )
