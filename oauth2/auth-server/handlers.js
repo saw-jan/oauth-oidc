@@ -36,7 +36,7 @@ function handleAuthorization(req, res) {
 
 function handleLogin(req, res) {
   const sessionCtx = sessionStore.get(req.query.session_id)
-  if (!session) {
+  if (!sessionCtx) {
     return res.status(400).send('Invalid request')
   }
 
@@ -111,7 +111,6 @@ function handleTokenRequest(req, res) {
 }
 
 function handleTokenInfo(req, res) {
-  console.log(req.body)
   const params = req.body
   if (!('token' in params)) {
     return sendErrorResponse(res, { error: 'invalid_request' })

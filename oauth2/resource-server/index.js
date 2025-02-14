@@ -5,7 +5,7 @@ const app = express()
 const port = 5001
 
 async function verifyToken(req, res, next) {
-  const token = '' // TODO: get token from request
+  const token = req.cookies?.access_token
   const clientAuthToken = Buffer.from('system-client:top_secret_key').toString(
     'base64'
   )

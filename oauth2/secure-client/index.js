@@ -33,7 +33,7 @@ function authMiddleware(req, res, next) {
   next()
 }
 
-app.get('/', authMiddleware, (req, res) => {
+app.get('/', (req, res) => {
   if (req.cookies.access_token) {
     return res.redirect('/dashboard')
   }
