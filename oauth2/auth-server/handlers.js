@@ -10,7 +10,7 @@ function handleAuthorization(req, res) {
   // validate client_id and redirect_uri
   const authError = validateAuthRequest(req)
   if (authError) {
-    res.status(400).send(authError)
+    return res.status(400).send(authError)
   }
 
   context.clientId = req.query.client_id
@@ -24,7 +24,7 @@ function handleAuthorization(req, res) {
       responseTypeError.state = context.state
     }
     const errParams = new URLSearchParams(responseTypeError).toString()
-    res.status(403).redirect(`${req.query.redirect_uri}?${errParams}`)
+    return res.status(403).redirect(`${req.query.redirect_uri}?${errParams}`)
   }
 
   context.responseType = req.query.response_type
@@ -65,12 +65,12 @@ function handleTokenRequest(req, res) {
     !params.client_id ||
     !params.redirect_uri
   ) {
-    sendErrorResponse(res, { error: 'invalid_request' })
+    return sendErrorResponse(res, { error: 'invalid_request' })
   }
 
   // validate grant_type
   if (params.grant_type !== 'authorization_code') {
-    sendErrorResponse(res, { error: 'unsupported_grant_type' })
+    return sendErrorResponse(res, { error: 'unsupported_grant_type' })
   }
 
   // TODO: validate paramete repeatition, multiple credentials and more than one authentication method
@@ -82,17 +82,17 @@ function handleTokenRequest(req, res) {
     (!params.client_secret ||
       !authenticateClient(params.client_id, params.client_secret))
   ) {
-    sendErrorResponse(res, { error: 'invalid_client', status: 401 })
+    return sendErrorResponse(res, { error: 'invalid_client', status: 401 })
   }
 
   // check if code is valid and not expired
   const code = codeStore.get(params.code)
   if (!code || hasCodeExpired(code.expiry)) {
-    sendErrorResponse(res, { error: 'invalid_grant' })
+    return sendErrorResponse(res, { error: 'invalid_grant' })
   }
   // check if code is for the same client_id
   if (code.clientId !== params.client_id) {
-    sendErrorResponse(res, { error: 'invalid_grant' })
+    return sendErrorResponse(res, { error: 'invalid_grant' })
   }
 
   // check if redirect_uri is valid
@@ -100,7 +100,7 @@ function handleTokenRequest(req, res) {
     code.redirectUri &&
     (!params.redirect_uri || code.redirectUri !== params.redirect_uri)
   ) {
-    sendErrorResponse(res, { error: 'invalid_grant' })
+    return sendErrorResponse(res, { error: 'invalid_grant' })
   }
 
   res.set('content-type', 'application/json')
@@ -111,18 +111,19 @@ function handleTokenRequest(req, res) {
 }
 
 function handleTokenInfo(req, res) {
+  console.log(req.body)
   const params = req.body
-  if (!params.token) {
-    sendErrorResponse(res, { error: 'invalid_request' })
+  if (!('token' in params)) {
+    return sendErrorResponse(res, { error: 'invalid_request' })
   }
   // authenticate request
   const authHeader = req.get('authorization')
   if (!authHeader.startsWith('Basic')) {
     res.set('WWW-Authenticate', 'Basic')
-    sendErrorResponse(res, { error: 'invalid_client' })
+    return sendErrorResponse(res, { error: 'invalid_client' })
   }
   if (authHeader && !authenticateSystemClient(authHeader)) {
-    sendErrorResponse(res, { error: 'invalid_client' })
+    return sendErrorResponse(res, { error: 'invalid_client' })
   }
 
   // return token info

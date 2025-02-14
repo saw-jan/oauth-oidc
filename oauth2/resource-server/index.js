@@ -10,14 +10,24 @@ async function verifyToken(req, res, next) {
     'base64'
   )
 
-  const response = await request.post(
-    'http://localhost:5000/oauth/introspect',
-    { token },
-    { headers: { Authorization: `Basic ${clientAuthToken}` } }
-  )
+  let response
+  try {
+    response = await request.post(
+      'http://localhost:5000/oauth/introspect',
+      // content-type: application/x-www-form-urlencoded
+      new URLSearchParams({ token }),
+      {
+        headers: {
+          Authorization: `Basic ${clientAuthToken}`,
+        },
+      }
+    )
+  } catch (e) {
+    response = e.response
+  }
 
   if (response.status !== 200 || !response.data.active) {
-    res.status(401).send('Unauthorized')
+    return res.status(401).send('Unauthorized')
   }
 
   next()
