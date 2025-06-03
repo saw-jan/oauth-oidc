@@ -30,7 +30,7 @@
 
 - Set of permissions
 - Implementation depends on the Resource Server
-- no predefined scopes
+- no predefined scopes in OAuth 2.0
 
 ## Grant Types (Flows)
 

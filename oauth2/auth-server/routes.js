@@ -8,6 +8,7 @@ const {
 
 function getOAuthRoutes() {
   const router = express.Router()
+  // [RFC-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-3.1
   router.get('/authorize', handleAuthorization)
   router.post('/token', handleTokenRequest)
   router.post('/introspect', handleTokenInfo)
