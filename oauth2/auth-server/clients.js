@@ -10,6 +10,11 @@ const clients = {
     redirect_uris: ['http://localhost:3443/oauth-callback'],
     type: 'confidential',
   },
+  'system-client': {
+    client_id: 'system-client',
+    client_secret: 'top_secret_key',
+    type: 'confidential',
+  },
 }
 
 function getClient(clientId) {

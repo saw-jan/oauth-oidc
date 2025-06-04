@@ -5,8 +5,10 @@ const {
   generateCode,
   authenticateClient,
   generateAccessToken,
+  parseAuthHeader,
+  getTokenInfo,
 } = require('./helpers')
-const { userStore, sessionStore, tokenStore } = require('./store')
+const { userStore, sessionStore } = require('./store')
 
 function handleAuthorization(req, res) {
   const sessionId = uuidv4()
@@ -61,14 +63,7 @@ function handleTokenRequest(req, res) {
   }
 
   // authenticate client
-  const authHeader = req.get('authorization')
-  const [clientId, clientSecret] = Buffer.from(
-    authHeader.split(' ')[1],
-    'base64'
-  )
-    .toString()
-    .split(':')
-    .map((item) => decodeURIComponent(item.replace(/\+/g, ' ')))
+  const [clientId, clientSecret] = parseAuthHeader(req.get('authorization'))
 
   if (!authenticateClient(clientId, clientSecret)) {
     const error = {
@@ -81,66 +76,27 @@ function handleTokenRequest(req, res) {
   res.status(200).send(generateAccessToken())
 }
 
+// Not defined in RFC-6749
 function handleTokenInfo(req, res) {
   const params = req.body
   if (!('token' in params)) {
-    return sendErrorResponse(res, { error: 'invalid_request' })
+    return res.status(400).send("Missing 'token' parameter")
   }
   // authenticate request
   const authHeader = req.get('authorization')
-  if (!authHeader.startsWith('Basic')) {
+  if (!authHeader || !authHeader.startsWith('Basic')) {
     res.set('WWW-Authenticate', 'Basic')
-    return sendErrorResponse(res, { error: 'invalid_client' })
+    return res.status(401).send("Missing or invalid 'Authorization' header")
   }
-  if (authHeader && !authenticateSystemClient(authHeader)) {
-    return sendErrorResponse(res, { error: 'invalid_client' })
+
+  const [clientId, clientSecret] = parseAuthHeader(authHeader)
+  if (!authenticateClient(clientId, clientSecret)) {
+    return res.status(401).send('Invalid client credentials')
   }
 
   // return token info
   res.set('content-type', 'application/json')
   res.status(200).send(getTokenInfo(params.token))
-}
-
-/**
- * -------------------------------
- * Helper functions
- * -------------------------------
- */
-function sendErrorResponse(res, { error, description = null, status = 400 }) {
-  const errorResponse = { error }
-  if (description) errorResponse.error_description = description
-  res.status(status).send(errorResponse)
-}
-
-function authenticateSystemClient(authHeader) {
-  const [clientId, clientSecret] = Buffer.from(
-    authHeader.split(' ')[1],
-    'base64'
-  )
-    .toString()
-    .split(':')
-  return clientId === 'system-client' && clientSecret === 'top_secret_key'
-}
-
-function getTokenInfo(token) {
-  const tokenObj = tokenStore.get(token)
-  const tokenInfo = { active: false }
-  if (!tokenObj) {
-    return tokenInfo
-  }
-
-  // check if token has expired
-  const timeDiffSeconds = (Date.now() - tokenObj.createdAt) / 1000
-  if (timeDiffSeconds >= tokenObj.expires_in) {
-    return tokenInfo
-  }
-
-  tokenInfo.active = true
-  tokenInfo.client_id = tokenObj.clientId
-  tokenInfo.exp = tokenObj.createdAt + tokenObj.expires_in * 1000
-  tokenInfo.iat = tokenObj.createdAt
-
-  return tokenInfo
 }
 
 module.exports = {

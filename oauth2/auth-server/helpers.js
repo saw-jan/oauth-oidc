@@ -38,9 +38,43 @@ function generateAccessToken(clientId) {
   return token
 }
 
+function parseAuthHeader(authHeader) {
+  const [clientId, clientSecret] = Buffer.from(
+    authHeader.split(' ')[1],
+    'base64'
+  )
+    .toString()
+    .split(':')
+    .map((item) => decodeURIComponent(item.replace(/\+/g, ' ')))
+  return { clientId, clientSecret }
+}
+
+function getTokenInfo(token) {
+  const tokenObj = tokenStore.get(token)
+  const tokenInfo = { active: false }
+  if (!tokenObj) {
+    return tokenInfo
+  }
+
+  // check if token has expired
+  const timeDiffSeconds = (Date.now() - tokenObj.createdAt) / 1000
+  if (timeDiffSeconds >= tokenObj.expires_in) {
+    return tokenInfo
+  }
+
+  tokenInfo.active = true
+  tokenInfo.client_id = tokenObj.clientId
+  tokenInfo.exp = tokenObj.createdAt + tokenObj.expires_in * 1000
+  tokenInfo.iat = tokenObj.createdAt
+
+  return tokenInfo
+}
+
 module.exports = {
   generateCode,
   hasCodeExpired,
   authenticateClient,
   generateAccessToken,
+  parseAuthHeader,
+  getTokenInfo,
 }
