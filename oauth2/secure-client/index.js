@@ -38,18 +38,11 @@ function buildClientAuthHeader() {
   return `Basic ${auth}`
 }
 
-function authMiddleware(req, res, next) {
-  if (!req.cookies.access_token) {
-    return res.redirect('/')
-  }
-  next()
-}
-
 app.get('/', (req, res) => {
-  if (req.cookies.access_token) {
-    return res.redirect('/dashboard')
-  }
+  res.sendFile(path.join(__dirname, 'views', 'dashboard.html'))
+})
 
+app.get('/connect', (req, res) => {
   const state = generateState()
   req.session.state = state
 
@@ -61,10 +54,6 @@ app.get('/', (req, res) => {
   }).toString()
 
   return res.redirect('http://localhost:5000/oauth/authorize?' + query)
-})
-
-app.get('/dashboard', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'dashboard.html'))
 })
 
 app.get('/oauth-callback', async (req, res) => {
@@ -100,7 +89,7 @@ app.get('/oauth-callback', async (req, res) => {
     httpOnly: false,
     maxAge: tokenRes.data.expires_in * 1000,
   })
-  res.redirect('/dashboard')
+  res.redirect('/')
 })
 
 app.all('*', (req, res) => {
