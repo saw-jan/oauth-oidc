@@ -1,4 +1,5 @@
 const express = require('express')
+const cors = require('cors')
 const bodyParser = require('body-parser')
 const path = require('path')
 
@@ -6,6 +7,8 @@ const { oauthRoutes, loginRoutes } = require('./routes')
 
 const app = express()
 const port = 5000
+
+app.use(cors())
 
 app.set('view engine', 'ejs')
 app.set('views', path.join(__dirname, 'views'))
