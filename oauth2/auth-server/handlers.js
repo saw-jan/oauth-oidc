@@ -63,7 +63,7 @@ function handleTokenRequest(req, res) {
   }
 
   // authenticate client
-  const [clientId, clientSecret] = parseAuthHeader(req.get('authorization'))
+  const { clientId, clientSecret } = parseAuthHeader(req.get('authorization'))
 
   if (!authenticateClient(clientId, clientSecret)) {
     const error = {
@@ -89,7 +89,7 @@ function handleTokenInfo(req, res) {
     return res.status(401).send("Missing or invalid 'Authorization' header")
   }
 
-  const [clientId, clientSecret] = parseAuthHeader(authHeader)
+  const { clientId, clientSecret } = parseAuthHeader(authHeader)
   if (!authenticateClient(clientId, clientSecret)) {
     return res.status(401).send('Invalid client credentials')
   }

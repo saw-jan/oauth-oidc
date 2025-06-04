@@ -25,7 +25,14 @@
                         Authorization: `Bearer ${accessToken}`,
                     },
                 })
-                    .then((response) => response.json())
+                    .then((response) => {
+                        if (response.status === 401) {
+                            document.cookie =
+                                'access_token=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+                            window.location.href = 'http://localhost:3443'
+                        }
+                        return response.json()
+                    })
                     .then((data) => {
                         document.getElementById('files').innerHTML = data
                             .map(({ name }) => `<li>${name}</li>`)
