@@ -1,7 +1,7 @@
 const clients = {
   web: {
     client_id: 'web',
-    redirect_uris: ['http://localhost:3000/oauth-callback'],
+    redirect_uris: ['http://localhost:3000'],
     type: 'public',
   },
   'secure-client': {

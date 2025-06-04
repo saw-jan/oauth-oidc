@@ -3,7 +3,8 @@ SHELL := bash
 SERVICES = \
 	auth-server \
 	resource-server \
-	secure-client
+	secure-client \
+	web-client
 
 .PHONY: install
 install:

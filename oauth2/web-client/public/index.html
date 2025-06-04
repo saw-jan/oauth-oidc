@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Web Client</title>
+        <style>
+            #list {
+                display: none;
+            }
+            button {
+                padding: 10px 20px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>I am web client</h1>
+        <button id="connect-btn" onclick="connect()">Connect</button>
+        <div id="list">
+            <h3>Files:</h3>
+            <div id="files">No files.</div>
+        </div>
+        <script>
+            function getState() {
+                const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+                let arr = new Uint8Array(15)
+                window.crypto.getRandomValues(arr)
+                arr = Array.from(arr, (n) => chars[n % chars.length])
+                const state = arr.join('')
+                // save state in browser cookie
+                document.cookie = `state=${state}; path=/;`
+                return state
+            }
+
+            function connect() {
+                const query = new URLSearchParams({
+                    response_type: 'token',
+                    client_id: 'web',
+                    redirect_uri: 'http://localhost:3000',
+                    state: getState(),
+                }).toString()
+                fetch('http://localhost:5000/oauth/authorize?' + query, {
+                    method: 'GET',
+                })
+                    .then(async (response) => {
+                        if (response.status !== 200) {
+                            throw new Error(await response.text())
+                        }
+                        // parse url param
+                        const url = new URL(response.url)
+                        const fragments = url.split('#')[1]
+                        fragments = new URLSearchParams(fragments)
+                        const accessToken = fragments.get('access_token')
+                        // get url fragment
+                        if (!accessToken) {
+                            const error = fragments.get('error')
+                            const errorMessage =
+                                fragments.get('error_description')
+                            throw new Error(`${error} - ${errorMessage}`)
+                        }
+                    })
+                    .catch((error) => console.error(error))
+            }
+
+            // let accessToken = document.cookie
+            //     .split('; ')
+            //     .find((row) => row.startsWith('access_token='))
+            // if (accessToken) {
+            //     accessToken = accessToken.split('=')[1]
+            // }
+
+            // document.addEventListener('DOMContentLoaded', () => {
+            //     const connectBtn = document.getElementById('connect-btn')
+            //     const fileListEl = document.getElementById('list')
+            //     if (accessToken) {
+            //         fileListEl.style.display = 'block'
+            //         connectBtn.style.display = 'none'
+
+            //         fetch('http://localhost:5001/api/files', {
+            //             method: 'GET',
+            //             headers: {
+            //                 Authorization: `Bearer ${accessToken}`,
+            //             },
+            //         })
+            //             .then((response) => {
+            //                 if (response.status === 401) {
+            //                     document.cookie =
+            //                         'access_token=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+            //                     fileListEl.style.display = 'none'
+            //                     connectBtn.style.display = 'block'
+            //                     return
+            //                 }
+            //                 return response.json()
+            //             })
+            //             .then((data) => {
+            //                 document.getElementById('files').innerHTML = data
+            //                     .map(({ name }) => `<li>${name}</li>`)
+            //                     .join('')
+            //             })
+            //             .catch((error) => console.error('Error:', error))
+            //     }
+            // })
+        </script>
+    </body>
+</html>
