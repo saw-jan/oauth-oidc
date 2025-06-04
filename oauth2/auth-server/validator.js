@@ -90,6 +90,7 @@ function validateAuthRequest(req, res) {
     errorMessage = `Invalid response_type: ${query.response_type}`
     return sendAuthorizeError(res, query, 'unauthorized_client', errorMessage)
   }
+  return true
 }
 
 // [RFC-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-3.2
@@ -198,6 +199,7 @@ function validateTokenRequest(req, res) {
     }
     return res.status(400).send(error)
   }
+  return true
 }
 
 module.exports = {

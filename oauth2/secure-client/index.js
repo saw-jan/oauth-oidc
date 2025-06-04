@@ -5,6 +5,9 @@ const cookie = require('cookie-parser')
 const path = require('path')
 const request = require('axios')
 
+// do not throw on http error status codes
+request.defaults.validateStatus = (status) => status >= 200 && status <= 599
+
 const app = express()
 const port = 3443
 
@@ -25,6 +28,15 @@ app.use(
     saveUninitialized: true,
   })
 )
+
+function buildClientAuthHeader() {
+  const auth = Buffer.from(
+    `${encodeURIComponent(oauthClient.client_id)}:${encodeURIComponent(
+      oauthClient.client_secret
+    )}`
+  ).toString('base64')
+  return `Basic ${auth}`
+}
 
 function authMiddleware(req, res, next) {
   if (!req.cookies.access_token) {
@@ -67,14 +79,21 @@ app.get('/oauth-callback', async (req, res) => {
     code,
     redirect_uri: oauthClient.redirect_uri,
     client_id: oauthClient.client_id,
-    client_secret: oauthClient.client_secret,
   })
 
   // exchange code for token
-  const tokenRes = await request.post('http://localhost:5000/oauth/token', data)
+  const tokenRes = await request.post(
+    'http://localhost:5000/oauth/token',
+    data,
+    {
+      headers: {
+        Authorization: buildClientAuthHeader(),
+      },
+    }
+  )
 
   if (tokenRes.status !== 200) {
-    return res.status(tokenRes.status).send(tokenRes.statusText)
+    return res.status(tokenRes.status).send(tokenRes.data)
   }
 
   res.cookie('access_token', tokenRes.data.access_token, {

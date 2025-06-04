@@ -1,11 +1,11 @@
 const { randomUUID: uuidv4 } = require('node:crypto')
 
+const { validateAuthRequest, validateTokenRequest } = require('./validator')
 const {
-  validateAuthRequest,
-  validateTokenRequest,
+  generateCode,
+  authenticateClient,
   generateAccessToken,
-} = require('./validator')
-const { generateCode, authenticateClient } = require('./helpers')
+} = require('./helpers')
 const { userStore, sessionStore, tokenStore } = require('./store')
 
 function handleAuthorization(req, res) {
@@ -13,7 +13,9 @@ function handleAuthorization(req, res) {
   const context = {}
 
   // 1(authorize). validate request
-  validateAuthRequest(req, res)
+  if (validateAuthRequest(req, res) !== true) {
+    return
+  }
 
   context.clientId = req.query.client_id
   context.redirectUri = req.query.redirect_uri
@@ -49,14 +51,14 @@ function handleLogin(req, res) {
 }
 
 function handleTokenRequest(req, res) {
-  const params = req.body
-
   // [RFC-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
   res.set('content-type', 'application/json')
   res.set('cache-control', 'no-store')
   res.set('pragma', 'no-cache')
 
-  validateTokenRequest(req, res)
+  if (validateTokenRequest(req, res) !== true) {
+    return
+  }
 
   // authenticate client
   const authHeader = req.get('authorization')
