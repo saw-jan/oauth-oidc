@@ -60,36 +60,39 @@
                 const connectBtn = document.getElementById('connect-btn')
                 const fileListEl = document.getElementById('list')
 
-                // check error in URL fragments
-                let frags = window.location.href.split('#')[1]
-                frags = new URLSearchParams(frags)
-                if (frags.get('error')) {
-                    console.error(
-                        `Error: ${frags.get('error')}: ${frags.get(
-                            'error_description'
-                        )}`
-                    )
-                    // expire state cookie
-                    document.cookie =
-                        'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
-                    return
-                } else if (frags.get('access_token')) {
-                    // validate state
-                    if (frags.get('state') !== getCookie('state')) {
-                        console.error('State mismatch. Possible CSRF attack.')
+                if (!accessToken) {
+                    // check URL fragments
+                    let frags = window.location.href.split('#')[1]
+                    frags = new URLSearchParams(frags)
+                    if (frags.get('error')) {
+                        console.error(
+                            `Error: ${frags.get('error')}: ${frags.get(
+                                'error_description'
+                            )}`
+                        )
+                        // expire state cookie
+                        document.cookie =
+                            'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
                         return
+                    } else if (frags.get('access_token')) {
+                        // validate state
+                        if (frags.get('state') !== getCookie('state')) {
+                            console.error(
+                                'State mismatch. Possible CSRF attack.'
+                            )
+                            return
+                        }
+                        document.cookie = `access_token=${frags.get(
+                            'access_token'
+                        )}; path=/;`
+                        accessToken = frags.get('access_token')
+                        // expire state cookie
+                        document.cookie =
+                            'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+                        // redirect to home page
+                        window.location.href = 'http://localhost:3000'
                     }
-                    document.cookie = `access_token=${frags.get(
-                        'access_token'
-                    )}; path=/;`
-                    accessToken = frags.get('access_token')
-                    // expire state cookie
-                    document.cookie =
-                        'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
-                    window.location.href = 'http://localhost:3000'
-                }
-
-                if (accessToken) {
+                } else {
                     fileListEl.style.display = 'block'
                     connectBtn.style.display = 'none'
                     fetch('http://localhost:5001/api/files', {
