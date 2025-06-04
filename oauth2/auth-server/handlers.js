@@ -9,6 +9,7 @@ const {
   getTokenInfo,
 } = require('./helpers')
 const { userStore, sessionStore } = require('./store')
+const { getClient } = require('./clients')
 
 function handleAuthorization(req, res) {
   const sessionId = uuidv4()
@@ -40,13 +41,24 @@ function handleLogin(req, res) {
     user.username === req.body.username &&
     user.password === req.body.password
   ) {
-    // [RCF-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
-    const code = generateCode(sessionCtx.clientId, sessionCtx.redirectUri)
-    let query = new URLSearchParams({ code })
-    if (sessionCtx.state) query.append('state', sessionCtx.state)
-    query = query.toString()
-    // 3(authorize). redirect to the client with the authorization code
-    return res.redirect(`${sessionCtx.redirectUri}?${query}`)
+    const client = getClient(sessionCtx.clientId)
+    if (client.type === 'public') {
+      // [RFC-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2
+      const token = generateAccessToken()
+      let frags = new URLSearchParams(token)
+      if (sessionCtx.state) frags.append('state', sessionCtx.state)
+      frags = frags.toString()
+      // 3(authorize). redirect to the client with the access token
+      return res.redirect(`${sessionCtx.redirectUri}#${frags}`)
+    } else {
+      // [RCF-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+      const code = generateCode(sessionCtx.clientId, sessionCtx.redirectUri)
+      let query = new URLSearchParams({ code })
+      if (sessionCtx.state) query.append('state', sessionCtx.state)
+      query = query.toString()
+      // 3(authorize). redirect to the client with the authorization code
+      return res.redirect(`${sessionCtx.redirectUri}?${query}`)
+    }
   }
 
   res.status(401).send('Invalid credentials')

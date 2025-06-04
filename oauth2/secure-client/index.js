@@ -57,8 +57,9 @@ app.get('/connect', (req, res) => {
 })
 
 app.get('/oauth-callback', async (req, res) => {
+  // validate state
   if (req.session.state !== req.query.state) {
-    return res.status(403).send('Invalid state!')
+    return res.status(403).send('State mismatch. Possible CSRF attack.')
   }
   const code = req.query.code
   req.session.state = null

@@ -23,6 +23,15 @@
             <div id="files">No files.</div>
         </div>
         <script>
+            function getCookie(name) {
+                const cookie = document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith(`${name}=`))
+                if (!cookie) {
+                    return null
+                }
+                return cookie.split('=')[1]
+            }
             function getState() {
                 const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
                 let arr = new Uint8Array(15)
@@ -41,67 +50,72 @@
                     redirect_uri: 'http://localhost:3000',
                     state: getState(),
                 }).toString()
-                fetch('http://localhost:5000/oauth/authorize?' + query, {
-                    method: 'GET',
-                })
-                    .then(async (response) => {
-                        if (response.status !== 200) {
-                            throw new Error(await response.text())
-                        }
-                        // parse url param
-                        const url = new URL(response.url)
-                        const fragments = url.split('#')[1]
-                        fragments = new URLSearchParams(fragments)
-                        const accessToken = fragments.get('access_token')
-                        // get url fragment
-                        if (!accessToken) {
-                            const error = fragments.get('error')
-                            const errorMessage =
-                                fragments.get('error_description')
-                            throw new Error(`${error} - ${errorMessage}`)
-                        }
-                    })
-                    .catch((error) => console.error(error))
+                window.location.href = `http://localhost:5000/oauth/authorize?${query}`
             }
 
-            // let accessToken = document.cookie
-            //     .split('; ')
-            //     .find((row) => row.startsWith('access_token='))
-            // if (accessToken) {
-            //     accessToken = accessToken.split('=')[1]
-            // }
+            // search access_token in cookies
+            let accessToken = getCookie('access_token')
 
-            // document.addEventListener('DOMContentLoaded', () => {
-            //     const connectBtn = document.getElementById('connect-btn')
-            //     const fileListEl = document.getElementById('list')
-            //     if (accessToken) {
-            //         fileListEl.style.display = 'block'
-            //         connectBtn.style.display = 'none'
+            document.addEventListener('DOMContentLoaded', () => {
+                const connectBtn = document.getElementById('connect-btn')
+                const fileListEl = document.getElementById('list')
 
-            //         fetch('http://localhost:5001/api/files', {
-            //             method: 'GET',
-            //             headers: {
-            //                 Authorization: `Bearer ${accessToken}`,
-            //             },
-            //         })
-            //             .then((response) => {
-            //                 if (response.status === 401) {
-            //                     document.cookie =
-            //                         'access_token=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
-            //                     fileListEl.style.display = 'none'
-            //                     connectBtn.style.display = 'block'
-            //                     return
-            //                 }
-            //                 return response.json()
-            //             })
-            //             .then((data) => {
-            //                 document.getElementById('files').innerHTML = data
-            //                     .map(({ name }) => `<li>${name}</li>`)
-            //                     .join('')
-            //             })
-            //             .catch((error) => console.error('Error:', error))
-            //     }
-            // })
+                // check error in URL fragments
+                let frags = window.location.href.split('#')[1]
+                frags = new URLSearchParams(frags)
+                if (frags.get('error')) {
+                    console.error(
+                        `Error: ${frags.get('error')}: ${frags.get(
+                            'error_description'
+                        )}`
+                    )
+                    // expire state cookie
+                    document.cookie =
+                        'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+                    return
+                } else if (frags.get('access_token')) {
+                    // validate state
+                    if (frags.get('state') !== getCookie('state')) {
+                        console.error('State mismatch. Possible CSRF attack.')
+                        return
+                    }
+                    document.cookie = `access_token=${frags.get(
+                        'access_token'
+                    )}; path=/;`
+                    accessToken = frags.get('access_token')
+                    // expire state cookie
+                    document.cookie =
+                        'state=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+                    window.location.href = 'http://localhost:3000'
+                }
+
+                if (accessToken) {
+                    fileListEl.style.display = 'block'
+                    connectBtn.style.display = 'none'
+                    fetch('http://localhost:5001/api/files', {
+                        method: 'GET',
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                        },
+                    })
+                        .then((response) => {
+                            if (response.status === 401) {
+                                document.cookie =
+                                    'access_token=; expires=Sun, 01 Jan 1970 00:00:00 UTC; path=/;'
+                                fileListEl.style.display = 'none'
+                                connectBtn.style.display = 'block'
+                                throw new Error('Unauthorized')
+                            }
+                            return response.json()
+                        })
+                        .then((data) => {
+                            document.getElementById('files').innerHTML = data
+                                .map(({ name }) => `<li>${name}</li>`)
+                                .join('')
+                        })
+                        .catch((error) => console.error(error))
+                }
+            })
         </script>
     </body>
 </html>

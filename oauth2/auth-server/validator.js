@@ -2,7 +2,7 @@ const { getClient } = require('./clients')
 const { codeStore } = require('./store')
 const { hasCodeExpired } = require('./helpers')
 
-function sendAuthorizeError(res, query, error, errorMessage) {
+function sendAuthorizeError(grantFlow, res, query, error, errorMessage) {
   const responseTypeError = {
     error,
     error_description: errorMessage,
@@ -12,7 +12,11 @@ function sendAuthorizeError(res, query, error, errorMessage) {
     responseTypeError.state = query.state
   }
   const errParams = new URLSearchParams(responseTypeError).toString()
-  return res.status(400).redirect(`${query.redirect_uri}?${errParams}`)
+  let redirectUri = `${query.redirect_uri}?`
+  if (grantFlow === 'implicit') {
+    redirectUri = `${query.redirect_uri}#`
+  }
+  return res.status(400).redirect(`${redirectUri}${errParams}`)
 }
 
 // [RFC-6749] https://datatracker.ietf.org/doc/html/rfc6749#section-3.1
@@ -45,16 +49,28 @@ function validateAuthRequest(req, res) {
     return res.status(400).send(`Invalid redirect_uri: ${query.redirect_uri}`)
   }
 
+  // expected grant flow based on client type
+  let grantFlow
+  if (client.type === 'public') {
+    grantFlow = 'implicit'
+  } else {
+    grantFlow = 'authorization_code'
+  }
+
   // ---------------------------------------
   // send error to the client via redirect
   // ---------------------------------------
 
-  const state = query.state || null
-
   // 4. check if response_type is provided
   if (!('response_type' in query)) {
     const errorMessage = 'Missing parameter: response_type'
-    return sendAuthorizeError(res, query, 'invalid_request', errorMessage)
+    return sendAuthorizeError(
+      grantFlow,
+      res,
+      query,
+      'invalid_request',
+      errorMessage
+    )
   }
 
   // 5. check duplicate parameters
@@ -65,13 +81,20 @@ function validateAuthRequest(req, res) {
   const uniqueParams = new Set(filteredParams)
   if (filteredParams.length !== uniqueParams.size) {
     const errorMessage = 'Duplicate parameters are not allowed'
-    return sendAuthorizeError(res, query, 'invalid_request', errorMessage)
+    return sendAuthorizeError(
+      grantFlow,
+      res,
+      query,
+      'invalid_request',
+      errorMessage
+    )
   }
 
   // 6. check if response_type is not supported
   if (!['code', 'token'].includes(query.response_type)) {
     errorMessage = `Unsupported grant type: ${query.response_type}`
     return sendAuthorizeError(
+      grantFlow,
       res,
       query,
       'unsupported_grant_type',
@@ -88,7 +111,13 @@ function validateAuthRequest(req, res) {
     (client.type === 'confidential' && query.response_type !== 'code')
   ) {
     errorMessage = `Invalid response_type: ${query.response_type}`
-    return sendAuthorizeError(res, query, 'unauthorized_client', errorMessage)
+    return sendAuthorizeError(
+      grantFlow,
+      res,
+      query,
+      'unauthorized_client',
+      errorMessage
+    )
   }
   return true
 }
